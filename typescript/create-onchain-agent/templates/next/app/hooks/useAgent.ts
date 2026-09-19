@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AgentRequest, AgentResponse } from "../types/api";
 
 /**
@@ -11,16 +11,53 @@ import { AgentRequest, AgentResponse } from "../types/api";
  *
  * @throws {Error} Logs an error if the request fails.
  */
-async function messageAgent(userMessage: string): Promise<string | null> {
+async function messageAgent(
+  userMessage: string,
+  sessionId: string,
+  onChunk: (chunk: string) => void,
+): Promise<string | null> {
   try {
     const response = await fetch("/api/agent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userMessage } as AgentRequest),
+      body: JSON.stringify({ sessionId, userMessage } as AgentRequest),
     });
 
-    const data = (await response.json()) as AgentResponse;
-    return data.response ?? data.error ?? null;
+    if (!response.ok) {
+      const data = (await response.json()) as AgentResponse;
+      return data.error ?? "Unable to contact the agent.";
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const data = (await response.json()) as AgentResponse;
+      return data.response ?? data.error ?? null;
+    }
+
+    if (!response.body) {
+      const text = await response.text();
+      onChunk(text);
+      return text;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResponse = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      fullResponse += decoder.decode(value, { stream: true });
+      onChunk(fullResponse);
+    }
+
+    fullResponse += decoder.decode();
+    onChunk(fullResponse);
+
+    return fullResponse || null;
   } catch (error) {
     console.error("Error communicating with agent:", error);
     return null;
@@ -46,9 +83,16 @@ async function messageAgent(userMessage: string): Promise<string | null> {
  * - `sendMessage`: A function to send a new message.
  * - `isThinking`: Boolean indicating if the agent is processing a response.
  */
+export type ChatMessage = {
+  id: string;
+  text: string;
+  sender: "user" | "agent";
+};
+
 export function useAgent() {
-  const [messages, setMessages] = useState<{ text: string; sender: "user" | "agent" }[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
+  const sessionId = useMemo(() => crypto.randomUUID(), []);
 
   /**
    * Sends a user message, updates local state, and retrieves the agent's response.
@@ -58,13 +102,41 @@ export function useAgent() {
   const sendMessage = async (input: string) => {
     if (!input.trim()) return;
 
-    setMessages(prev => [...prev, { text: input, sender: "user" }]);
+    const userMessageId = crypto.randomUUID();
+    const agentMessageId = crypto.randomUUID();
+
+    setMessages(prev => [
+      ...prev,
+      { id: userMessageId, text: input, sender: "user" },
+      { id: agentMessageId, text: "", sender: "agent" },
+    ]);
     setIsThinking(true);
 
-    const responseMessage = await messageAgent(input);
+    const responseMessage = await messageAgent(input, sessionId, responseChunk => {
+      setMessages(prev =>
+        prev.map(message =>
+          message.id === agentMessageId ? { ...message, text: responseChunk } : message,
+        ),
+      );
+    });
 
     if (responseMessage) {
-      setMessages(prev => [...prev, { text: responseMessage, sender: "agent" }]);
+      setMessages(prev =>
+        prev.map(message =>
+          message.id === agentMessageId ? { ...message, text: responseMessage } : message,
+        ),
+      );
+    } else {
+      setMessages(prev =>
+        prev.map(message =>
+          message.id === agentMessageId
+            ? {
+                ...message,
+                text: "I'm sorry, I encountered an issue processing your message. Please try again later.",
+              }
+            : message,
+        ),
+      );
     }
 
     setIsThinking(false);

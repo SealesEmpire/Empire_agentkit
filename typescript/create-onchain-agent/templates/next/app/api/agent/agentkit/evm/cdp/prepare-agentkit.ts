@@ -1,16 +1,13 @@
+import { AgentKit } from "@coinbase/agentkit/agentkit";
 import {
-  AgentKit,
   cdpApiActionProvider,
   cdpEvmWalletActionProvider,
-  CdpEvmWalletProvider,
-  erc20ActionProvider,
-  pythActionProvider,
-  walletActionProvider,
-  WalletProvider,
-  wethActionProvider,
-  x402ActionProvider,
-} from "@coinbase/agentkit";
-import * as fs from "fs";
+} from "@coinbase/agentkit/action-providers/cdp";
+import { erc20ActionProvider } from "@coinbase/agentkit/action-providers/erc20";
+import { walletActionProvider } from "@coinbase/agentkit/action-providers/wallet";
+import { CdpEvmWalletProvider } from "@coinbase/agentkit/wallet-providers/cdpEvmWalletProvider";
+import type { WalletProvider } from "@coinbase/agentkit/wallet-providers/walletProvider";
+import { readFile, writeFile } from "fs/promises";
 
 /**
  * AgentKit Integration Route
@@ -68,12 +65,11 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
     let walletDataStr: string | null = null;
 
     // Read existing wallet data if available
-    if (fs.existsSync(WALLET_DATA_FILE)) {
-      try {
-        walletDataStr = fs.readFileSync(WALLET_DATA_FILE, "utf8");
-      } catch (error) {
+    try {
+      walletDataStr = await readFile(WALLET_DATA_FILE, "utf8");
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") {
         console.error("Error reading wallet data:", error);
-        // Continue without wallet data
       }
     }
 
@@ -91,19 +87,16 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
     const agentkit = await AgentKit.from({
       walletProvider,
       actionProviders: [
-        wethActionProvider(),
-        pythActionProvider(),
         walletActionProvider(),
         erc20ActionProvider(),
         cdpApiActionProvider(),
         cdpEvmWalletActionProvider(),
-        x402ActionProvider(),
       ],
     });
 
     // Save wallet data
     const exportedWallet = await walletProvider.exportWallet();
-    fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
+    await writeFile(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
 
     return { agentkit, walletProvider };
   } catch (error) {

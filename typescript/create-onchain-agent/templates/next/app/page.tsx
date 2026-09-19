@@ -1,8 +1,35 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useAgent } from "./hooks/useAgent";
+import { memo, useEffect, useRef, useState } from "react";
+import { ChatMessage, useAgent } from "./hooks/useAgent";
 import ReactMarkdown from "react-markdown";
+
+const MessageBubble = memo(function MessageBubble({ message }: { message: ChatMessage }) {
+  return (
+    <div
+      className={`p-3 rounded-2xl shadow ${
+        message.sender === "user"
+          ? "bg-[#0052FF] text-white self-end"
+          : "bg-gray-100 dark:bg-gray-700 self-start"
+      }`}
+    >
+      <ReactMarkdown
+        components={{
+          a: props => (
+            <a
+              {...props}
+              className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          ),
+        }}
+      >
+        {message.text}
+      </ReactMarkdown>
+    </div>
+  );
+});
 
 /**
  * Home page for the AgentKit Quickstart
@@ -41,31 +68,7 @@ export default function Home() {
           {messages.length === 0 ? (
             <p className="text-center text-gray-500">Start chatting with AgentKit...</p>
           ) : (
-            messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded-2xl shadow ${
-                  msg.sender === "user"
-                    ? "bg-[#0052FF] text-white self-end"
-                    : "bg-gray-100 dark:bg-gray-700 self-start"
-                }`}
-              >
-                <ReactMarkdown
-                  components={{
-                    a: props => (
-                      <a
-                        {...props}
-                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      />
-                    ),
-                  }}
-                >
-                  {msg.text}
-                </ReactMarkdown>
-              </div>
-            ))
+            messages.map(message => <MessageBubble key={message.id} message={message} />)
           )}
 
           {/* Thinking Indicator */}

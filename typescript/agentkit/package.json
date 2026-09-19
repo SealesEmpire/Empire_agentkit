@@ -99,6 +99,38 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./agentkit": {
+      "types": "./dist/agentkit.d.ts",
+      "default": "./dist/agentkit.js"
+    },
+    "./action-providers": {
+      "types": "./dist/action-providers/index.d.ts",
+      "default": "./dist/action-providers/index.js"
+    },
+    "./action-providers/*": {
+      "types": "./dist/action-providers/*/index.d.ts",
+      "default": "./dist/action-providers/*/index.js"
+    },
+    "./action-providers/actionProvider": {
+      "types": "./dist/action-providers/actionProvider.d.ts",
+      "default": "./dist/action-providers/actionProvider.js"
+    },
+    "./wallet-providers": {
+      "types": "./dist/wallet-providers/index.d.ts",
+      "default": "./dist/wallet-providers/index.js"
+    },
+    "./wallet-providers/*": {
+      "types": "./dist/wallet-providers/*.d.ts",
+      "default": "./dist/wallet-providers/*.js"
+    },
+    "./wallet-providers/walletProvider": {
+      "types": "./dist/wallet-providers/walletProvider.d.ts",
+      "default": "./dist/wallet-providers/walletProvider.js"
+    },
+    "./network": {
+      "types": "./dist/network/index.d.ts",
+      "default": "./dist/network/index.js"
     }
   }
 }
