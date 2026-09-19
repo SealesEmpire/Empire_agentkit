@@ -1,30 +1,23 @@
 import { z } from "zod";
 import { getLangChainTools } from "./index";
-import { AgentKit } from "@coinbase/agentkit";
-
-// Mock AgentKit before importing - this prevents loading ES-only dependencies
-jest.mock("@coinbase/agentkit", () => ({
-  AgentKit: {
-    from: jest.fn(),
-  },
-}));
 
 // Define mock action after imports
 const mockAction = {
-  name: "testAction",
-  description: "A test action",
+  name: "getBalance",
+  description: "Get the current balance",
   schema: z.object({ test: z.string() }),
   invoke: jest.fn(async (arg: { test: string }) => `Invoked with ${arg.test}`),
 };
 
-// Configure the mock
-(AgentKit.from as jest.Mock).mockImplementation(() => ({
-  getActions: jest.fn(() => [mockAction]),
-}));
-
 describe("getLangChainTools", () => {
+  beforeEach(() => {
+    mockAction.invoke.mockClear();
+  });
+
   it("should return an array of tools with correct properties", async () => {
-    const mockAgentKit = await AgentKit.from({});
+    const mockAgentKit = {
+      getActions: jest.fn(() => [mockAction]),
+    };
     const tools = await getLangChainTools(mockAgentKit);
 
     expect(tools).toHaveLength(1);
@@ -36,5 +29,22 @@ describe("getLangChainTools", () => {
 
     const result = await tool.invoke({ test: "data" });
     expect(result).toBe("Invoked with data");
+  });
+
+  it("caches read-only tool results for matching inputs", async () => {
+    const mockAgentKit = {
+      getActions: jest.fn(() => [mockAction]),
+    };
+    const tools = await getLangChainTools(mockAgentKit, {
+      cache: {
+        shouldCache: () => true,
+        ttlMs: 1_000,
+      },
+    });
+
+    await tools[0].invoke({ test: "cached-data" });
+    await tools[0].invoke({ test: "cached-data" });
+
+    expect(mockAction.invoke).toHaveBeenCalledTimes(1);
   });
 });

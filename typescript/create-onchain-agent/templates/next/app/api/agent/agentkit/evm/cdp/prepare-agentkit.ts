@@ -4,13 +4,10 @@ import {
   cdpEvmWalletActionProvider,
   CdpEvmWalletProvider,
   erc20ActionProvider,
-  pythActionProvider,
   walletActionProvider,
   WalletProvider,
-  wethActionProvider,
-  x402ActionProvider,
 } from "@coinbase/agentkit";
-import * as fs from "fs";
+import { loadPersistedWalletData, persistWalletData } from "@/app/lib/server/wallet-persistence";
 
 /**
  * AgentKit Integration Route
@@ -65,17 +62,7 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
   }
 
   try {
-    let walletDataStr: string | null = null;
-
-    // Read existing wallet data if available
-    if (fs.existsSync(WALLET_DATA_FILE)) {
-      try {
-        walletDataStr = fs.readFileSync(WALLET_DATA_FILE, "utf8");
-      } catch (error) {
-        console.error("Error reading wallet data:", error);
-        // Continue without wallet data
-      }
-    }
+    const walletDataStr = await loadPersistedWalletData(WALLET_DATA_FILE);
 
     // Initialize WalletProvider: https://docs.cdp.coinbase.com/agentkit/docs/wallet-management
     const walletProvider = await CdpEvmWalletProvider.configureWithWallet({
@@ -91,19 +78,16 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
     const agentkit = await AgentKit.from({
       walletProvider,
       actionProviders: [
-        wethActionProvider(),
-        pythActionProvider(),
         walletActionProvider(),
         erc20ActionProvider(),
         cdpApiActionProvider(),
         cdpEvmWalletActionProvider(),
-        x402ActionProvider(),
       ],
     });
 
     // Save wallet data
     const exportedWallet = await walletProvider.exportWallet();
-    fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
+    await persistWalletData(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
 
     return { agentkit, walletProvider };
   } catch (error) {

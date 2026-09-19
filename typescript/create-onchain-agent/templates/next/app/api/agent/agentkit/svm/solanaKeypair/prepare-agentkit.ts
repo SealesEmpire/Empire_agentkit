@@ -10,8 +10,8 @@ import {
   WalletProvider,
 } from "@coinbase/agentkit";
 import { Keypair } from "@solana/web3.js";
+import { loadPersistedWalletData, persistWalletData } from "@/app/lib/server/wallet-persistence";
 import bs58 from "bs58";
-import fs from "fs";
 
 /**
  * AgentKit Integration Route
@@ -63,13 +63,14 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
     // Setup Private Key
     let privateKey = process.env.SOLANA_PRIVATE_KEY as string;
     if (!privateKey) {
-      if (fs.existsSync(WALLET_DATA_FILE)) {
-        privateKey = JSON.parse(fs.readFileSync(WALLET_DATA_FILE, "utf8")).privateKey;
+      const walletData = await loadPersistedWalletData(WALLET_DATA_FILE);
+      if (walletData) {
+        privateKey = JSON.parse(walletData).privateKey;
         console.info("Found private key in wallet_data.txt");
       } else {
         const keypair = Keypair.generate();
         privateKey = bs58.encode(keypair.secretKey);
-        fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify({ privateKey }));
+        await persistWalletData(WALLET_DATA_FILE, JSON.stringify({ privateKey }));
         console.log("Created new private key and saved to wallet_data.txt");
         console.log(
           "We recommend you save this private key to your .env file and delete wallet_data.txt afterwards.",
