@@ -42,8 +42,8 @@ describe("getLangChainTools", () => {
       },
     });
 
-    await tools[0].invoke({ test: "data" });
-    await tools[0].invoke({ test: "data" });
+    await tools[0].invoke({ test: "cached-data" });
+    await tools[0].invoke({ test: "cached-data" });
 
     expect(mockAction.invoke).toHaveBeenCalledTimes(1);
   });

@@ -56,8 +56,8 @@ describe("getVercelAITools", () => {
      messages: [],
    };
 
-   await execute({ test: "data" }, options);
-   await execute({ test: "data" }, options);
+   await execute({ test: "cached-data" }, options);
+   await execute({ test: "cached-data" }, options);
 
    expect(mockAction.invoke).toHaveBeenCalledTimes(1);
   });
