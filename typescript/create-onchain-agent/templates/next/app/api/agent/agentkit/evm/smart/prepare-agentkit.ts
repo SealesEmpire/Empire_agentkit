@@ -10,7 +10,7 @@ import {
   wethActionProvider,
   x402ActionProvider,
 } from "@coinbase/agentkit";
-import * as fs from "fs";
+import { loadPersistedWalletData, persistWalletData } from "@/app/lib/server/wallet-persistence";
 import { Address, Hex, LocalAccount } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -76,9 +76,10 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
   let owner: Hex | LocalAccount | undefined = undefined;
 
   // Read existing wallet data if available
-  if (fs.existsSync(WALLET_DATA_FILE)) {
+  const walletDataRaw = await loadPersistedWalletData(WALLET_DATA_FILE);
+  if (walletDataRaw) {
     try {
-      walletData = JSON.parse(fs.readFileSync(WALLET_DATA_FILE, "utf8")) as WalletData;
+      walletData = JSON.parse(walletDataRaw) as WalletData;
       if (walletData.ownerAddress) owner = walletData.ownerAddress;
       else if (walletData.privateKey) owner = privateKeyToAccount(walletData.privateKey as Hex);
       else
@@ -122,7 +123,7 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
     // Save wallet data
     if (!walletData) {
       const exportedWallet = await walletProvider.exportWallet();
-      fs.writeFileSync(
+      await persistWalletData(
         WALLET_DATA_FILE,
         JSON.stringify({
           ownerAddress: exportedWallet.ownerAddress,

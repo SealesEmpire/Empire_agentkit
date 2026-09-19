@@ -249,6 +249,8 @@ export async function handleNextSelection(
     // Start file with notes regarding .env var setup
     ...[
       "Get keys from OpenAI Platform: https://platform.openai.com/api-keys",
+      "For Vercel deployments, copy these same values into Project Settings > Environment Variables",
+      "For serverless deployments, prefer AGENTKIT_WALLET_DATA over local wallet_data.txt persistence",
       ...agentkitRouteConfig.env.topComments,
     ]
       .map(comment => `# ${comment}`)
@@ -259,6 +261,17 @@ export async function handleNextSelection(
     // Finish with # Optional section
     "\n\n# Optional\n",
     ...[
+      "AGENTKIT_DEPLOYMENT_TARGET=",
+      "AGENTKIT_OPENAI_MODEL=gpt-4o-mini",
+      "AGENTKIT_MAX_STEPS=4",
+      "AGENTKIT_TOOL_CACHE_TTL_MS=15000",
+      "AGENTKIT_MAX_SESSION_MESSAGES=10",
+      "AGENTKIT_SESSION_TTL_MS=1800000",
+      "AGENTKIT_MAX_DURATION_SECONDS=30",
+      "AGENTKIT_PREFERRED_REGION=auto",
+      "AGENTKIT_ENABLE_FILE_WALLET_STORAGE=",
+      "EMPIRE_KNOWLEDGE_CORE_ENABLED=true",
+      "EMPIRE_KNOWLEDGE_CORE_MAX_SNIPPETS=3",
       `NETWORK_ID=${network ?? ""}`,
       rpcUrl ? `RPC_URL=${rpcUrl}` : null,
       chainId ? `CHAIN_ID=${chainId}` : null,

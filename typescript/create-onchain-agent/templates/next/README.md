@@ -1,4 +1,4 @@
-# Onchain Agent Powered by AgentKit
+# Empire AgentKit on Vercel
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with `create-onchain-agent`.  
 
@@ -26,6 +26,47 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to see the project.
 
+## Empire Knowledge Core
+
+This template includes a lightweight **Empire Knowledge Core** retrieval layer at `app/lib/server/empire-knowledge-core.ts`.
+
+Use it to keep a small, curated set of deployment, wallet, and operational knowledge close to the agent without adding a database or vector store. Only the top relevant snippets are injected into the prompt for each request.
+
+## Vercel Deployment
+
+### 1. Configure secrets
+
+Add these environment variables in **Vercel → Project Settings → Environment Variables**:
+
+- `OPENAI_API_KEY`
+- wallet-provider-specific secrets such as `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`
+- optional production controls:
+  - `AGENTKIT_OPENAI_MODEL`
+  - `AGENTKIT_MAX_STEPS`
+  - `AGENTKIT_TOOL_CACHE_TTL_MS`
+  - `AGENTKIT_WALLET_DATA`
+  - `EMPIRE_KNOWLEDGE_CORE_ENABLED`
+
+### 2. Avoid local wallet file persistence in production
+
+Vercel file storage is ephemeral. Prefer storing exported wallet state in `AGENTKIT_WALLET_DATA`. Local file persistence is automatically treated as a local-development fallback.
+
+### 3. Health checks
+
+Use `/api/health` to verify:
+
+- required secrets are present
+- runtime configuration is loaded
+- Empire Knowledge Core is enabled
+
+### 4. Deploy
+
+```sh
+vercel
+```
+
+or connect the repo in the Vercel dashboard and deploy normally.
+
 
 ## Configuring Your Agent
 
@@ -47,6 +88,7 @@ Action Providers define what your agent can do. You can use built-in providers o
 - Explore the AgentKit README: [AgentKit Documentation](https://github.com/coinbase/agentkit)
 - Learn more about available Wallet Providers & Action Providers.
 - Experiment with custom Action Providers for your specific use case.
+- Expand the Empire Knowledge Core with your own curated documents and deployment runbooks.
 
 ---
 

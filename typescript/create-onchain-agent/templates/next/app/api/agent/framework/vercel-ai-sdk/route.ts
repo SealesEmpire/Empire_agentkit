@@ -1,16 +1,22 @@
 import { AgentRequest, AgentResponse } from "@/app/types/api";
 import { streamText, type ModelMessage } from "ai";
+import { buildEmpireKnowledgeContext } from "@/app/lib/server/empire-knowledge-core";
+import { getRuntimeConfig } from "@/app/lib/server/runtime-config";
 import { NextResponse } from "next/server";
 import { createAgent } from "./create-agent";
 
-const SESSION_TTL_MS = 30 * 60 * 1000;
-const MAX_SESSION_MESSAGES = 10;
 const sessionMessages = new Map<string, { messages: ModelMessage[]; updatedAt: number }>();
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+export const preferredRegion = "auto";
+export const runtime = "nodejs";
+
 function cleanupExpiredSessions() {
+  const config = getRuntimeConfig();
   const now = Date.now();
   for (const [sessionId, session] of sessionMessages.entries()) {
-    if (now - session.updatedAt > SESSION_TTL_MS) {
+    if (now - session.updatedAt > config.sessionTtlMs) {
       sessionMessages.delete(sessionId);
     }
   }
@@ -22,8 +28,9 @@ function getSessionHistory(sessionId: string): ModelMessage[] {
 }
 
 function saveSessionHistory(sessionId: string, messages: ModelMessage[]) {
+  const config = getRuntimeConfig();
   sessionMessages.set(sessionId, {
-    messages: messages.slice(-MAX_SESSION_MESSAGES),
+    messages: messages.slice(-config.maxSessionMessages),
     updatedAt: Date.now(),
   });
 }
@@ -51,18 +58,29 @@ export async function POST(
   try {
     // 1️. Extract user message from the request body
     const { sessionId = crypto.randomUUID(), userMessage } = await req.json();
+    if (!userMessage?.trim()) {
+      return NextResponse.json({ error: "Please provide a message." }, { status: 400 });
+    }
 
     // 2. Get the agent
     const agent = await createAgent();
+    const requestId = crypto.randomUUID();
+    const knowledgeContext = buildEmpireKnowledgeContext(userMessage);
 
     // 3. Build a bounded session history for this conversation
     const messages = [...getSessionHistory(sessionId), { role: "user", content: userMessage } as const];
     const result = streamText({
       ...agent,
+      maxRetries: 1,
       messages,
+      system: knowledgeContext
+        ? `${agent.system}\n\nEmpire Knowledge Core:\n${knowledgeContext}`
+        : agent.system,
       onStepFinish: async ({ toolResults }) => {
-        for (const tr of toolResults) {
-          console.log(`Tool ${tr.toolName}: ${tr.output}`);
+        if (process.env.NODE_ENV !== "production") {
+          for (const tr of toolResults) {
+            console.log(`Tool ${tr.toolName}: ${tr.output}`);
+          }
         }
       },
     });
@@ -92,8 +110,11 @@ export async function POST(
 
     return new Response(stream, {
       headers: {
+        "Cache-Control": "no-store",
         "Content-Type": "text/plain; charset=utf-8",
+        "X-Agent-Request-Id": requestId,
         "X-Agent-Session-Id": sessionId,
+        "X-Empire-Knowledge-Core": knowledgeContext ? "hit" : "miss",
       },
     });
   } catch (error) {
@@ -103,6 +124,6 @@ export async function POST(
         error instanceof Error
           ? error.message
           : "I'm sorry, I encountered an issue processing your message. Please try again later.",
-    });
+    }, { status: 500 });
   }
 }

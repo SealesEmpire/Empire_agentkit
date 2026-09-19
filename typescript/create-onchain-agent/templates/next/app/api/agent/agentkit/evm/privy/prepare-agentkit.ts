@@ -10,7 +10,7 @@ import {
   WalletProvider,
   wethActionProvider,
 } from "@coinbase/agentkit";
-import fs from "fs";
+import { loadPersistedWalletData, persistWalletData } from "@/app/lib/server/wallet-persistence";
 
 /**
  * AgentKit Integration Route
@@ -75,8 +75,9 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
       authorizationKeyId: process.env.PRIVY_WALLET_AUTHORIZATION_KEY_ID,
     };
     // Try to load saved wallet data
-    if (fs.existsSync(WALLET_DATA_FILE)) {
-      const savedWallet = JSON.parse(fs.readFileSync(WALLET_DATA_FILE, "utf8"));
+    const savedWalletData = await loadPersistedWalletData(WALLET_DATA_FILE);
+    if (savedWalletData) {
+      const savedWallet = JSON.parse(savedWalletData);
       config.walletId = savedWallet.walletId;
       config.authorizationPrivateKey = savedWallet.authorizationPrivateKey;
 
@@ -109,7 +110,7 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
 
     // Save wallet data
     const exportedWallet = walletProvider.exportWallet();
-    fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
+    await persistWalletData(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
 
     return { agentkit, walletProvider };
   } catch (error) {

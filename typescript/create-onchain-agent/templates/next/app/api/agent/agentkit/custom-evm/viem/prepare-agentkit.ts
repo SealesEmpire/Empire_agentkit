@@ -9,7 +9,7 @@ import {
   WalletProvider,
   wethActionProvider,
 } from "@coinbase/agentkit";
-import fs from "fs";
+import { loadPersistedWalletData, persistWalletData } from "@/app/lib/server/wallet-persistence";
 import { createWalletClient, http } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
@@ -63,12 +63,13 @@ export async function prepareAgentkitAndWalletProvider(): Promise<{
     // Initialize WalletProvider: https://docs.cdp.coinbase.com/agentkit/docs/wallet-management
     let privateKey = process.env.PRIVATE_KEY as `0x${string}`;
     if (!privateKey) {
-      if (fs.existsSync(WALLET_DATA_FILE)) {
-        privateKey = JSON.parse(fs.readFileSync(WALLET_DATA_FILE, "utf8")).privateKey;
+      const walletData = await loadPersistedWalletData(WALLET_DATA_FILE);
+      if (walletData) {
+        privateKey = JSON.parse(walletData).privateKey;
         console.info("Found private key in wallet_data.txt");
       } else {
         privateKey = generatePrivateKey();
-        fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify({ privateKey }));
+        await persistWalletData(WALLET_DATA_FILE, JSON.stringify({ privateKey }));
         console.log("Created new private key and saved to wallet_data.txt");
         console.log(
           "We recommend you save this private key to your .env file and delete wallet_data.txt afterwards.",
