@@ -1,16 +1,13 @@
-import { AgentKit } from "@coinbase/agentkit/agentkit";
 import {
+  AgentKit,
   cdpApiActionProvider,
   cdpEvmWalletActionProvider,
-} from "@coinbase/agentkit/action-providers/cdp";
-import { erc20ActionProvider } from "@coinbase/agentkit/action-providers/erc20";
-import { walletActionProvider } from "@coinbase/agentkit/action-providers/wallet";
-import { CdpEvmWalletProvider } from "@coinbase/agentkit/wallet-providers/cdpEvmWalletProvider";
-import type { WalletProvider } from "@coinbase/agentkit/wallet-providers/walletProvider";
-import {
-  loadPersistedWalletData,
-  persistWalletData,
-} from "@/app/lib/server/wallet-persistence";
+  CdpEvmWalletProvider,
+  erc20ActionProvider,
+  walletActionProvider,
+  WalletProvider,
+} from "@coinbase/agentkit";
+import { loadPersistedWalletData, persistWalletData } from "@/app/lib/server/wallet-persistence";
 
 /**
  * AgentKit Integration Route

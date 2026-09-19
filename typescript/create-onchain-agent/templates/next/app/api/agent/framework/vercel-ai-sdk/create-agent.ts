@@ -1,8 +1,4 @@
-import { openai } from "@ai-sdk/openai";
-import { getVercelAITools } from "@coinbase/agentkit-vercel-ai-sdk";
-import { stepCountIs } from "ai";
 import { getMissingRequiredEnv, getRuntimeConfig } from "@/app/lib/server/runtime-config";
-import { prepareAgentkitAndWalletProvider } from "./prepare-agentkit";
 
 /**
  * Agent Configuration Guide
@@ -22,10 +18,10 @@ import { prepareAgentkitAndWalletProvider } from "./prepare-agentkit";
 
 // The agent
 type Agent = {
-  tools: ReturnType<typeof getVercelAITools>;
+  maxSteps?: number;
+  tools: Record<string, unknown>;
   system: string;
-  model: ReturnType<typeof openai>;
-  stopWhen?: ReturnType<typeof stepCountIs>;
+  model: unknown;
 };
 let agent: Agent;
 
@@ -51,10 +47,18 @@ export async function createAgent(): Promise<Agent> {
     throw new Error(`Missing required environment variables: ${missingEnv.join(", ")}`);
   }
 
-  const { agentkit, walletProvider } = await prepareAgentkitAndWalletProvider();
   const config = getRuntimeConfig();
 
   try {
+    const [{ openai }, { getVercelAITools }, { prepareAgentkitAndWalletProvider }] =
+      await Promise.all([
+        import("@ai-sdk/openai"),
+        import("@coinbase/agentkit-vercel-ai-sdk"),
+        import("./prepare-agentkit"),
+      ]);
+
+    const { agentkit, walletProvider } = await prepareAgentkitAndWalletProvider();
+
     // Initialize LLM: https://platform.openai.com/docs/models#gpt-4o
     const model = openai.chat(config.openAiModel);
 
@@ -72,15 +76,13 @@ export async function createAgent(): Promise<Agent> {
       "If a tool returns a 5XX error, ask the user to retry later.",
       "For CDP or AgentKit questions, recommend docs.cdp.coinbase.com.",
     ].join(" ");
-    const tools = getVercelAITools(agentkit, {
-      cache: { ttlMs: config.toolCacheTtlMs },
-    });
+    const tools = getVercelAITools(agentkit);
 
     agent = {
+      maxSteps: config.maxAgentSteps,
       tools,
       system,
       model,
-      stopWhen: stepCountIs(config.maxAgentSteps),
     };
 
     return agent;

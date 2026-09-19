@@ -1,15 +1,16 @@
 import { AgentRequest, AgentResponse } from "@/app/types/api";
-import { streamText, type ModelMessage } from "ai";
+import { streamText, type Message } from "ai";
 import { buildEmpireKnowledgeContext } from "@/app/lib/server/empire-knowledge-core";
 import { getRuntimeConfig } from "@/app/lib/server/runtime-config";
 import { NextResponse } from "next/server";
 import { createAgent } from "./create-agent";
 
-const sessionMessages = new Map<string, { messages: ModelMessage[]; updatedAt: number }>();
+type ChatHistoryMessage = Omit<Message, "id">;
+
+const sessionMessages = new Map<string, { messages: ChatHistoryMessage[]; updatedAt: number }>();
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-export const preferredRegion = "auto";
 export const runtime = "nodejs";
 
 function cleanupExpiredSessions() {
@@ -22,12 +23,12 @@ function cleanupExpiredSessions() {
   }
 }
 
-function getSessionHistory(sessionId: string): ModelMessage[] {
+function getSessionHistory(sessionId: string): ChatHistoryMessage[] {
   cleanupExpiredSessions();
   return sessionMessages.get(sessionId)?.messages ?? [];
 }
 
-function saveSessionHistory(sessionId: string, messages: ModelMessage[]) {
+function saveSessionHistory(sessionId: string, messages: ChatHistoryMessage[]) {
   const config = getRuntimeConfig();
   sessionMessages.set(sessionId, {
     messages: messages.slice(-config.maxSessionMessages),
@@ -63,12 +64,15 @@ export async function POST(
     }
 
     // 2. Get the agent
-    const agent = await createAgent();
+    const agent = (await createAgent()) as Parameters<typeof streamText>[0];
     const requestId = crypto.randomUUID();
     const knowledgeContext = buildEmpireKnowledgeContext(userMessage);
 
     // 3. Build a bounded session history for this conversation
-    const messages = [...getSessionHistory(sessionId), { role: "user", content: userMessage } as const];
+    const messages = [
+      ...getSessionHistory(sessionId),
+      { role: "user", content: userMessage } as const,
+    ];
     const result = streamText({
       ...agent,
       maxRetries: 1,
@@ -78,7 +82,7 @@ export async function POST(
         : agent.system,
       onStepFinish: async ({ toolResults }) => {
         if (process.env.NODE_ENV !== "production") {
-          for (const tr of toolResults) {
+          for (const tr of toolResults as Array<{ output: unknown; toolName: string }>) {
             console.log(`Tool ${tr.toolName}: ${tr.output}`);
           }
         }
@@ -119,11 +123,14 @@ export async function POST(
     });
   } catch (error) {
     console.error("Error processing request:", error);
-    return NextResponse.json({
-      error:
-        error instanceof Error
-          ? error.message
-          : "I'm sorry, I encountered an issue processing your message. Please try again later.",
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "I'm sorry, I encountered an issue processing your message. Please try again later.",
+      },
+      { status: 500 },
+    );
   }
 }
